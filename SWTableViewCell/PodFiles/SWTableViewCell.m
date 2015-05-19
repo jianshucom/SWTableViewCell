@@ -10,6 +10,10 @@
 #import "SWUtilityButtonView.h"
 
 static NSString * const kTableViewCellContentView = @"UITableViewCellContentView";
+static NSString * const kScrollViewContentOffset = @"contentOffset";
+
+static NSString * const kEditingCellState = @"kEditingcellState";
+static NSString * const kCollapseEditingCell = @"kCollapseEditingCell";
 
 #define kSectionIndexWidth 15
 #define kAccessoryTrailingSpace 15
@@ -22,6 +26,7 @@ static NSString * const kTableViewCellContentView = @"UITableViewCellContentView
 @property (nonatomic, strong) UIPanGestureRecognizer *tableViewPanGestureRecognizer;
 
 @property (nonatomic, assign) SWCellState cellState; // The state of the cell within the scroll view, can be left, right or middle
+@property (nonatomic, assign) SWCellState editingCellState;
 @property (nonatomic, assign) CGFloat additionalRightPadding;
 
 @property (nonatomic, strong) UIScrollView *cellScrollView;
@@ -84,6 +89,16 @@ static NSString * const kTableViewCellContentView = @"UITableViewCellContentView
     self.cellScrollView.showsHorizontalScrollIndicator = NO;
     self.cellScrollView.scrollsToTop = NO;
     self.cellScrollView.scrollEnabled = YES;
+    [self.cellScrollView addObserver:self forKeyPath:kScrollViewContentOffset options:NSKeyValueObservingOptionNew context:nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserverForName:kEditingCellState object:nil queue:nil usingBlock:^(NSNotification *note) {
+        self.editingCellState = [note.userInfo[kEditingCellState] integerValue];
+    }];
+    [[NSNotificationCenter defaultCenter] addObserverForName:kCollapseEditingCell object:nil queue:nil usingBlock:^(NSNotification *note) {
+        if (self.cellState != kCellStateCenter) {
+            [self hideUtilityButtonsAnimated:YES];
+        }
+    }];
     
     _contentCellView = [[UIView alloc] init];
     [self.cellScrollView addSubview:_contentCellView];
@@ -236,6 +251,25 @@ static NSString * const kTableViewPanState = @"state";
                 }
             }
         }
+    }else if ([keyPath isEqualToString:kScrollViewContentOffset])
+    {
+        CGPoint contentOffset = [[change objectForKey:NSKeyValueChangeNewKey] CGPointValue];
+        
+        CGPoint leftContentOffset = [self contentOffsetForCellState:kCellStateLeft];
+        CGPoint rightContentOffset = [self contentOffsetForCellState:kCellStateRight];
+        CGPoint centerContentOffset = [self contentOffsetForCellState:kCellStateCenter];
+
+        if (CGPointEqualToPoint(contentOffset, centerContentOffset))
+        {
+            self.cellState = kCellStateCenter;
+        }else if (CGPointEqualToPoint(contentOffset, rightContentOffset))
+        {
+            self.cellState = kCellStateRight;
+        }else if (CGPointEqualToPoint(contentOffset, leftContentOffset))
+        {
+            self.cellState = kCellStateLeft;
+        }
+        [[NSNotificationCenter defaultCenter] postNotificationName:kEditingCellState object:nil userInfo:@{kEditingCellState : @(_cellState)}];
     }
 }
 
@@ -401,7 +435,7 @@ static NSString * const kTableViewPanState = @"state";
 
 - (void)scrollViewTapped:(UIGestureRecognizer *)gestureRecognizer
 {
-    if (_cellState == kCellStateCenter)
+    if (_cellState == kCellStateCenter && _editingCellState == kCellStateCenter)
     {
         if (self.isSelected)
         {
@@ -411,6 +445,10 @@ static NSString * const kTableViewPanState = @"state";
         {
             [self selectCell];
         }
+    }
+    else if (_cellState == kCellStateCenter && _editingCellState != kCellStateCenter)
+    {
+        [[NSNotificationCenter defaultCenter] postNotificationName:kCollapseEditingCell object:nil];
     }
     else
     {
