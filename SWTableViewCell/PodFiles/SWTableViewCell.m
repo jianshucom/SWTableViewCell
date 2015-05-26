@@ -93,6 +93,13 @@ static NSString * const kCollapseEditingCell = @"kCollapseEditingCell";
     
     [[NSNotificationCenter defaultCenter] addObserverForName:kEditingCellState object:nil queue:nil usingBlock:^(NSNotification *note) {
         self.editingCellState = [note.userInfo[kEditingCellState] integerValue];
+        
+        if (self.editingCellState != kCellStateCenter && self.cellState == kCellStateCenter) {
+            self.cellScrollView.scrollEnabled = NO;
+        }
+        if (self.editingCellState == kCellStateCenter) {
+            self.cellScrollView.scrollEnabled = YES;
+        }
     }];
     [[NSNotificationCenter defaultCenter] addObserverForName:kCollapseEditingCell object:nil queue:nil usingBlock:^(NSNotification *note) {
         if (self.cellState != kCellStateCenter) {
