@@ -91,21 +91,8 @@ static NSString * const kCollapseEditingCell = @"kCollapseEditingCell";
     self.cellScrollView.scrollEnabled = YES;
     [self.cellScrollView addObserver:self forKeyPath:kScrollViewContentOffset options:NSKeyValueObservingOptionNew context:nil];
     
-    [[NSNotificationCenter defaultCenter] addObserverForName:kEditingCellState object:nil queue:nil usingBlock:^(NSNotification *note) {
-        self.editingCellState = [note.userInfo[kEditingCellState] integerValue];
-        
-        if (self.editingCellState != kCellStateCenter && self.cellState == kCellStateCenter) {
-            self.cellScrollView.scrollEnabled = NO;
-        }
-        if (self.editingCellState == kCellStateCenter) {
-            self.cellScrollView.scrollEnabled = YES;
-        }
-    }];
-    [[NSNotificationCenter defaultCenter] addObserverForName:kCollapseEditingCell object:nil queue:nil usingBlock:^(NSNotification *note) {
-        if (self.cellState != kCellStateCenter) {
-            [self hideUtilityButtonsAnimated:YES];
-        }
-    }];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(editingCellStateChanged:) name:kEditingCellState object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(collapseEditingCell:) name:kCollapseEditingCell object:nil];
     
     _contentCellView = [[UIView alloc] init];
     [self.cellScrollView addSubview:_contentCellView];
@@ -211,6 +198,8 @@ static NSString * const kTableViewPanState = @"state";
 {
     _cellScrollView.delegate = nil;
     [self removeOldTableViewPanObserver];
+    [self.cellScrollView removeObserver:self forKeyPath:kScrollViewContentOffset];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)setContainingTableView:(UITableView *)containingTableView
@@ -845,6 +834,24 @@ static NSString * const kTableViewPanState = @"state";
 -(BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
     return ![touch.view isKindOfClass:[UIControl class]];
+}
+
+#pragma mark - Notification selector
+- (void)editingCellStateChanged:(NSNotification *)note {
+    self.editingCellState = [note.userInfo[kEditingCellState] integerValue];
+    
+    if (self.editingCellState != kCellStateCenter && self.cellState == kCellStateCenter) {
+        self.cellScrollView.scrollEnabled = NO;
+    }
+    if (self.editingCellState == kCellStateCenter) {
+        self.cellScrollView.scrollEnabled = YES;
+    }
+}
+
+- (void)collapseEditingCell:(NSNotification *)note {
+    if (self.cellState != kCellStateCenter) {
+        [self hideUtilityButtonsAnimated:YES];
+    }
 }
 
 @end
